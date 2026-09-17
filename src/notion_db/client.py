@@ -1,23 +1,23 @@
 """NotionDB / AsyncNotionDB: schema-aware wrappers around one Notion database.
 
 AsyncNotionDB is the core implementation -- every method is `async def` and
-talks to notion_client.AsyncClient directly. NotionDB (sync) holds one
-AsyncNotionDB internally and just runs its async methods to completion via
-run_sync(); the schema resolution, property conversion, filter/sort
-compilation and pagination logic lives exactly once, in AsyncNotionDB.
+talks to notion-db's own hand-rolled Notion HTTP client (see http.py)
+directly. NotionDB (sync) holds one AsyncNotionDB internally and just runs
+its async methods to completion via run_sync(); the schema resolution,
+property conversion, filter/sort compilation and pagination logic lives
+exactly once, in AsyncNotionDB.
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
-
-from notion_client import AsyncClient
-from notion_client.errors import NotionClientErrorBase
 
 from ._sync import run_sync
 from .exceptions import NotionDBError, NotionValidationError, translate_error
 from .filters import FilterExpr
+from .http import NotionAPIClient, NotionHTTPError
 from .page import Page
 from .properties import READ_ONLY_TYPES, to_notion_property
 from .query import AsyncQuery, Query, compile_query_kwargs
@@ -43,10 +43,10 @@ class AsyncNotionDB:
         *,
         token: str | None = None,
         data_source_id: str | None = None,
-        client: AsyncClient | None = None,
+        client: NotionAPIClient | None = None,
     ) -> None:
         self.database_id = database_id
-        self._client = client or AsyncClient(auth=_resolve_token(token))
+        self._client = client or NotionAPIClient(_resolve_token(token))
         self._data_source_id = data_source_id
         self._schema: dict[str, str] | None = None
 
@@ -64,7 +64,7 @@ class AsyncNotionDB:
                     )
                 self._data_source_id = data_sources[0]["id"]
             data_source = await self._client.data_sources.retrieve(data_source_id=self._data_source_id)
-        except NotionClientErrorBase as exc:
+        except NotionHTTPError as exc:
             translate_error(exc)
         self._schema = {name: prop["type"] for name, prop in data_source.get("properties", {}).items()}
 
@@ -88,14 +88,14 @@ class AsyncNotionDB:
                 parent={"type": "data_source_id", "data_source_id": self._data_source_id},
                 properties=payload,
             )
-        except NotionClientErrorBase as exc:
+        except NotionHTTPError as exc:
             translate_error(exc)
         return Page.from_raw(raw)
 
     async def get(self, page_id: str) -> Page:
         try:
             raw = await self._client.pages.retrieve(page_id=page_id)
-        except NotionClientErrorBase as exc:
+        except NotionHTTPError as exc:
             translate_error(exc)
         return Page.from_raw(raw)
 
@@ -104,7 +104,7 @@ class AsyncNotionDB:
         payload = self._build_properties(properties)
         try:
             raw = await self._client.pages.update(page_id=page_id, properties=payload)
-        except NotionClientErrorBase as exc:
+        except NotionHTTPError as exc:
             translate_error(exc)
         return Page.from_raw(raw)
 
@@ -112,7 +112,7 @@ class AsyncNotionDB:
         """Archive the page. Notion has no hard delete via the API."""
         try:
             await self._client.pages.update(page_id=page_id, archived=True)
-        except NotionClientErrorBase as exc:
+        except NotionHTTPError as exc:
             translate_error(exc)
 
     async def query(
@@ -127,6 +127,55 @@ class AsyncNotionDB:
         assert self._schema is not None and self._data_source_id is not None
         kwargs = compile_query_kwargs(self._data_source_id, self._schema, filter, sort, page_size)
         return AsyncQuery(query_fn=self._client.data_sources.query, kwargs=kwargs, limit=limit)
+
+    async def create_many(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        max_concurrency: int = 5,
+    ) -> list[Page | NotionDBError]:
+        """Create multiple pages concurrently.
+
+        Best-effort, not all-or-nothing: returns one result per input item,
+        in the same order, either the created Page or the NotionDBError
+        raised for that item. Actual API rate limiting is still enforced by
+        the shared token bucket in the underlying transport, so raising
+        max_concurrency doesn't exceed Notion's rate limit -- it only bounds
+        how many requests are in flight/waiting at once.
+        """
+        await self._ensure_schema()
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _one(properties: dict[str, Any]) -> Page | NotionDBError:
+            async with semaphore:
+                try:
+                    return await self.create(properties)
+                except NotionDBError as exc:
+                    return exc
+
+        return list(await asyncio.gather(*(_one(item) for item in items)))
+
+    async def update_many(
+        self,
+        updates: list[tuple[str, dict[str, Any]]],
+        *,
+        max_concurrency: int = 5,
+    ) -> list[Page | NotionDBError]:
+        """Update multiple pages concurrently, given (page_id, properties) pairs.
+
+        Same best-effort semantics as create_many.
+        """
+        await self._ensure_schema()
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def _one(page_id: str, properties: dict[str, Any]) -> Page | NotionDBError:
+            async with semaphore:
+                try:
+                    return await self.update(page_id, properties)
+                except NotionDBError as exc:
+                    return exc
+
+        return list(await asyncio.gather(*(_one(page_id, properties) for page_id, properties in updates)))
 
 
 class NotionDB:
@@ -143,7 +192,7 @@ class NotionDB:
         *,
         token: str | None = None,
         data_source_id: str | None = None,
-        client: AsyncClient | None = None,
+        client: NotionAPIClient | None = None,
     ) -> None:
         self._async = AsyncNotionDB(database_id, token=token, data_source_id=data_source_id, client=client)
 
@@ -162,6 +211,16 @@ class NotionDB:
 
     def delete(self, page_id: str) -> None:
         run_sync(self._async.delete(page_id))
+
+    def create_many(
+        self, items: list[dict[str, Any]], *, max_concurrency: int = 5
+    ) -> list[Page | NotionDBError]:
+        return run_sync(self._async.create_many(items, max_concurrency=max_concurrency))
+
+    def update_many(
+        self, updates: list[tuple[str, dict[str, Any]]], *, max_concurrency: int = 5
+    ) -> list[Page | NotionDBError]:
+        return run_sync(self._async.update_many(updates, max_concurrency=max_concurrency))
 
     def query(
         self,

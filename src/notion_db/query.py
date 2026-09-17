@@ -1,18 +1,14 @@
 """Iterable, auto-paginating query results.
 
-Pagination itself is not reimplemented here -- AsyncQuery hands the actual
-page-fetching function to notion_client's own async_iterate_paginated_api
-helper, which already handles start_cursor/has_more/next_cursor bookkeeping.
-Query (used by the sync NotionDB) is a plain materialized list: the sync
-facade fully collects a query's pages in a single run_sync() call rather than
-opening one event loop per page.
+AsyncQuery drives its own start_cursor/has_more/next_cursor bookkeeping over
+the injected query function. Query (used by the sync NotionDB) is a plain
+materialized list: the sync facade fully collects a query's pages in a
+single run_sync() call rather than opening one event loop per page.
 """
 
 from __future__ import annotations
 
 from typing import Any, AsyncIterator, Callable, Iterator
-
-from notion_client.helpers import async_iterate_paginated_api
 
 from .filters import FilterExpr, compile_filter
 from .page import Page
@@ -88,12 +84,21 @@ class AsyncQuery:
         self._limit = limit
 
     async def __aiter__(self) -> AsyncIterator[Page]:
+        kwargs = dict(self._kwargs)
+        next_cursor = kwargs.pop("start_cursor", None)
         count = 0
-        async for raw_page in async_iterate_paginated_api(self._query_fn, **self._kwargs):
+        while True:
             if self._limit is not None and count >= self._limit:
                 return
-            yield Page.from_raw(raw_page)
-            count += 1
+            response = await self._query_fn(**kwargs, start_cursor=next_cursor)
+            for raw_page in response.get("results", []):
+                if self._limit is not None and count >= self._limit:
+                    return
+                yield Page.from_raw(raw_page)
+                count += 1
+            next_cursor = response.get("next_cursor")
+            if not response.get("has_more") or next_cursor is None:
+                return
 
     async def all(self) -> list[Page]:
         return [page async for page in self]

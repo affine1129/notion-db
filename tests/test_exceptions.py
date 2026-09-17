@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from notion_client.errors import APIResponseError
 
 from notion_db.exceptions import (
     NotionAPIError,
@@ -13,14 +12,15 @@ from notion_db.exceptions import (
     NotionValidationError,
     translate_error,
 )
+from notion_db.http import NotionHTTPError
 
 
-def _api_error(code: str) -> APIResponseError:
-    return APIResponseError(
+def _api_error(code: str) -> NotionHTTPError:
+    return NotionHTTPError(
         code=code,
+        status=400,
         message="boom",
         headers=httpx.Headers(),
-        status=400,
         raw_body_text="{}",
     )
 

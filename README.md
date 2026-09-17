@@ -1,11 +1,12 @@
 # notion-db
 
-A small Python wrapper around the [official Notion SDK](https://github.com/ramnes/notion-sdk-py) (`notion-client`) that makes working with a Notion database feel like working with a simple key-value store — no model classes to declare. Point it at a database id and use plain dicts of property name → value; property types are resolved automatically from the database's own schema.
+A small, dependency-light Python client for Notion databases — no `notion-client`/`notion-sdk-py` dependency, just `httpx` — that makes working with a Notion database feel like working with a simple key-value store — no model classes to declare. Point it at a database id and use plain dicts of property name → value; property types are resolved automatically from the database's own schema.
 
 - **No schema classes to write** — types are read from the database itself, once, and cached.
 - **Sync and async, both first-class** — `NotionDB` and `AsyncNotionDB` share the exact same logic; the sync client is a thin wrapper around the async one.
 - **Automatic pagination** — iterate a query and every page is fetched transparently.
 - **A small query builder** — plain dicts for simple equality filters, `F(...)` for comparisons/`&`/`|`.
+- **Built-in resilience** — automatic retry with backoff on 429/5xx responses (honoring `Retry-After`), plus a client-side rate limiter tuned to Notion's ~3 req/sec integration limit, so you rarely see a `NotionRateLimitError` in practice.
 
 ## Install
 
@@ -41,6 +42,22 @@ for page in db.query(
     print(page["Name"], page["Due Date"])
 ```
 
+### Batch create / update
+
+`create_many` / `update_many` run concurrently (bounded by `max_concurrency`, default 5) under the same rate limiter as everything else, and never raise on a per-item failure — they return one result per input, in order, each either a `Page` or a `NotionDBError` subclass instance, so partial failures don't lose the rest of the batch:
+
+```python
+results = db.create_many([
+    {"Name": "Task A"},
+    {"Name": "Task B"},
+])
+for result in results:
+    if isinstance(result, Exception):
+        print("failed:", result)
+    else:
+        print("created:", result.id)
+```
+
 ### Async
 
 ```python
@@ -62,4 +79,4 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All tests run against a mocked `notion_client`, so no live Notion workspace or token is required.
+All tests run against dependency-injected fakes (`tests/conftest.py`'s `mock_client`) and, for the HTTP transport itself, `httpx.MockTransport` — no live Notion workspace, token, or network access is required.

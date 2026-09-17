@@ -1,4 +1,4 @@
-"""Exception hierarchy for notion_db, wrapping notion_client errors."""
+"""Exception hierarchy for notion_db, wrapping notion-db's own HTTP transport errors."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ class NotionNotFoundError(NotionDBError):
 
 
 class NotionRateLimitError(NotionDBError):
-    """The Notion API rate limit was exceeded after notion_client's own retries were exhausted."""
+    """The Notion API rate limit was exceeded after notion-db's own retry/backoff was exhausted."""
 
 
 class NotionValidationError(NotionDBError):
@@ -46,7 +46,7 @@ _API_CODE_TO_ERROR: dict[str, type[NotionDBError]] = {
 
 
 def translate_error(exc: Exception) -> NoReturn:
-    """Re-raise a notion_client exception as the matching NotionDBError subclass."""
+    """Re-raise a NotionHTTPError as the matching NotionDBError subclass."""
     code = getattr(exc, "code", None)
     code_value = code.value if hasattr(code, "value") else code
     error_cls = _API_CODE_TO_ERROR.get(str(code_value), NotionAPIError)
