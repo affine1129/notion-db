@@ -55,7 +55,9 @@ class AsyncNotionDB:
             return
         try:
             if self._data_source_id is None:
-                database = await self._client.databases.retrieve(database_id=self.database_id)
+                database = await self._client.databases.retrieve(
+                    database_id=self.database_id
+                )
                 data_sources = database.get("data_sources", [])
                 if len(data_sources) != 1:
                     raise NotionDBError(
@@ -63,20 +65,29 @@ class AsyncNotionDB:
                         "pass data_source_id=... explicitly to disambiguate"
                     )
                 self._data_source_id = data_sources[0]["id"]
-            data_source = await self._client.data_sources.retrieve(data_source_id=self._data_source_id)
+            data_source = await self._client.data_sources.retrieve(
+                data_source_id=self._data_source_id
+            )
         except NotionHTTPError as exc:
             translate_error(exc)
-        self._schema = {name: prop["type"] for name, prop in data_source.get("properties", {}).items()}
+        self._schema = {
+            name: prop["type"]
+            for name, prop in data_source.get("properties", {}).items()
+        }
 
     def _build_properties(self, properties: dict[str, Any]) -> dict[str, Any]:
         assert self._schema is not None
         payload: dict[str, Any] = {}
         for name, value in properties.items():
             if name not in self._schema:
-                raise NotionValidationError(f"unknown property {name!r} for database {self.database_id!r}")
+                raise NotionValidationError(
+                    f"unknown property {name!r} for database {self.database_id!r}"
+                )
             notion_type = self._schema[name]
             if notion_type in READ_ONLY_TYPES:
-                raise NotionValidationError(f"property {name!r} is read-only ({notion_type})")
+                raise NotionValidationError(
+                    f"property {name!r} is read-only ({notion_type})"
+                )
             payload[name] = to_notion_property(notion_type, value)
         return payload
 
@@ -85,7 +96,10 @@ class AsyncNotionDB:
         payload = self._build_properties(properties)
         try:
             raw = await self._client.pages.create(
-                parent={"type": "data_source_id", "data_source_id": self._data_source_id},
+                parent={
+                    "type": "data_source_id",
+                    "data_source_id": self._data_source_id,
+                },
                 properties=payload,
             )
         except NotionHTTPError as exc:
@@ -118,15 +132,19 @@ class AsyncNotionDB:
     async def query(
         self,
         *,
-        filter: FilterExpr | dict[str, Any] | None = None,  # noqa: A002
+        filter: FilterExpr | dict[str, Any] | None = None,
         sort: str | list[Any] | None = None,
         limit: int | None = None,
         page_size: int = 100,
     ) -> AsyncQuery:
         await self._ensure_schema()
         assert self._schema is not None and self._data_source_id is not None
-        kwargs = compile_query_kwargs(self._data_source_id, self._schema, filter, sort, page_size)
-        return AsyncQuery(query_fn=self._client.data_sources.query, kwargs=kwargs, limit=limit)
+        kwargs = compile_query_kwargs(
+            self._data_source_id, self._schema, filter, sort, page_size
+        )
+        return AsyncQuery(
+            query_fn=self._client.data_sources.query, kwargs=kwargs, limit=limit
+        )
 
     async def create_many(
         self,
@@ -168,14 +186,20 @@ class AsyncNotionDB:
         await self._ensure_schema()
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def _one(page_id: str, properties: dict[str, Any]) -> Page | NotionDBError:
+        async def _one(
+            page_id: str, properties: dict[str, Any]
+        ) -> Page | NotionDBError:
             async with semaphore:
                 try:
                     return await self.update(page_id, properties)
                 except NotionDBError as exc:
                     return exc
 
-        return list(await asyncio.gather(*(_one(page_id, properties) for page_id, properties in updates)))
+        return list(
+            await asyncio.gather(
+                *(_one(page_id, properties) for page_id, properties in updates)
+            )
+        )
 
 
 class NotionDB:
@@ -194,7 +218,9 @@ class NotionDB:
         data_source_id: str | None = None,
         client: NotionAPIClient | None = None,
     ) -> None:
-        self._async = AsyncNotionDB(database_id, token=token, data_source_id=data_source_id, client=client)
+        self._async = AsyncNotionDB(
+            database_id, token=token, data_source_id=data_source_id, client=client
+        )
 
     @property
     def database_id(self) -> str:
@@ -220,18 +246,22 @@ class NotionDB:
     def update_many(
         self, updates: list[tuple[str, dict[str, Any]]], *, max_concurrency: int = 5
     ) -> list[Page | NotionDBError]:
-        return run_sync(self._async.update_many(updates, max_concurrency=max_concurrency))
+        return run_sync(
+            self._async.update_many(updates, max_concurrency=max_concurrency)
+        )
 
     def query(
         self,
         *,
-        filter: FilterExpr | dict[str, Any] | None = None,  # noqa: A002
+        filter: FilterExpr | dict[str, Any] | None = None,
         sort: str | list[Any] | None = None,
         limit: int | None = None,
         page_size: int = 100,
     ) -> Query:
         async def _collect() -> list[Page]:
-            async_query = await self._async.query(filter=filter, sort=sort, limit=limit, page_size=page_size)
+            async_query = await self._async.query(
+                filter=filter, sort=sort, limit=limit, page_size=page_size
+            )
             return await async_query.all()
 
         return Query(run_sync(_collect()))

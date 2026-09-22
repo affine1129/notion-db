@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 from .properties import from_notion_property
 
@@ -29,7 +30,7 @@ class Page:
         return self.properties.get(name, default)
 
     @classmethod
-    def from_raw(cls, raw: dict) -> "Page":
+    def from_raw(cls, raw: dict) -> Page:
         """Build a Page from a raw Notion page object. The type of each
         property is read straight off the payload (every Notion property
         value carries its own "type" field), so no schema lookup is needed

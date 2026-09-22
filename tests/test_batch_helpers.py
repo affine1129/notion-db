@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-
 from unittest.mock import AsyncMock
 
 import pytest
+from conftest import DATABASE_ID, make_raw_page
 
 from notion_db.client import AsyncNotionDB, NotionDB
 from notion_db.exceptions import NotionDBError, NotionValidationError
 from notion_db.page import Page
-
-from conftest import DATABASE_ID, make_raw_page
 
 
 def _title_of(properties: dict) -> str:
@@ -61,7 +59,9 @@ async def test_update_many_returns_pages_in_order(mock_client):
     mock_client.pages.update = AsyncMock(side_effect=_update_side_effect)
     db = AsyncNotionDB(DATABASE_ID, client=mock_client)
 
-    results = await db.update_many([("p1", {"Name": "New A"}), ("p2", {"Name": "New B"})])
+    results = await db.update_many(
+        [("p1", {"Name": "New A"}), ("p2", {"Name": "New B"})]
+    )
 
     assert [r["Name"] for r in results] == ["New A", "New B"]
 
@@ -75,7 +75,9 @@ async def test_update_many_is_best_effort_on_partial_failure(mock_client):
     mock_client.pages.update = AsyncMock(side_effect=_update_side_effect)
     db = AsyncNotionDB(DATABASE_ID, client=mock_client)
 
-    results = await db.update_many([("p1", {"Name": "New A"}), ("p2", {"UnknownProperty": "y"})])
+    results = await db.update_many(
+        [("p1", {"Name": "New A"}), ("p2", {"UnknownProperty": "y"})]
+    )
 
     assert isinstance(results[0], Page)
     assert isinstance(results[1], NotionDBError)

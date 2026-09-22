@@ -10,8 +10,9 @@ so no per-property class needs to be written by users of this library.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date, datetime
-from typing import Any, Callable
+from typing import Any
 
 from .exceptions import NotionValidationError
 
@@ -104,7 +105,12 @@ def _to_date(value: Any) -> dict:
         return {"date": None}
     if isinstance(value, tuple):
         start, end = value
-        return {"date": {"start": _iso(start), "end": _iso(end) if end is not None else None}}
+        return {
+            "date": {
+                "start": _iso(start),
+                "end": _iso(end) if end is not None else None,
+            }
+        }
     return {"date": {"start": _iso(value), "end": None}}
 
 
@@ -168,7 +174,11 @@ def _from_relation(prop: dict) -> list[str]:
 def _to_files(value: Any) -> dict:
     return {
         "files": [
-            {"name": url.rsplit("/", 1)[-1] or url, "type": "external", "external": {"url": url}}
+            {
+                "name": url.rsplit("/", 1)[-1] or url,
+                "type": "external",
+                "external": {"url": url},
+            }
             for url in (value or [])
         ]
     }
@@ -261,7 +271,9 @@ FROM_NOTION: dict[str, Callable[[dict], Any]] = {
 
 def to_notion_property(notion_type: str, value: Any) -> dict:
     if notion_type in READ_ONLY_TYPES:
-        raise NotionValidationError(f"property type {notion_type!r} is read-only and cannot be written")
+        raise NotionValidationError(
+            f"property type {notion_type!r} is read-only and cannot be written"
+        )
     to_fn = TO_NOTION.get(notion_type)
     if to_fn is None:
         raise NotionValidationError(f"unsupported property type {notion_type!r}")

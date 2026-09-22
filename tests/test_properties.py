@@ -17,7 +17,9 @@ def test_title_round_trip():
 
 def test_rich_text_round_trip():
     payload = to_notion_property("rich_text", "notes here")
-    assert payload == {"rich_text": [{"type": "text", "text": {"content": "notes here"}}]}
+    assert payload == {
+        "rich_text": [{"type": "text", "text": {"content": "notes here"}}]
+    }
     prop = {"type": "rich_text", "rich_text": [{"plain_text": "notes here"}]}
     assert from_notion_property("rich_text", prop) == "notes here"
 
@@ -30,7 +32,10 @@ def test_number():
 def test_select_round_trip():
     assert to_notion_property("select", "High") == {"select": {"name": "High"}}
     assert to_notion_property("select", None) == {"select": None}
-    assert from_notion_property("select", {"type": "select", "select": {"name": "High"}}) == "High"
+    assert (
+        from_notion_property("select", {"type": "select", "select": {"name": "High"}})
+        == "High"
+    )
     assert from_notion_property("select", {"type": "select", "select": None}) is None
 
 
@@ -44,12 +49,17 @@ def test_multi_select_round_trip():
 
 def test_status_round_trip():
     assert to_notion_property("status", "Done") == {"status": {"name": "Done"}}
-    assert from_notion_property("status", {"type": "status", "status": {"name": "Done"}}) == "Done"
+    assert (
+        from_notion_property("status", {"type": "status", "status": {"name": "Done"}})
+        == "Done"
+    )
 
 
 def test_checkbox_round_trip():
     assert to_notion_property("checkbox", True) == {"checkbox": True}
-    assert from_notion_property("checkbox", {"type": "checkbox", "checkbox": True}) is True
+    assert (
+        from_notion_property("checkbox", {"type": "checkbox", "checkbox": True}) is True
+    )
 
 
 def test_date_single_value_round_trip():
@@ -58,7 +68,7 @@ def test_date_single_value_round_trip():
     assert payload == {"date": {"start": "2026-01-01", "end": None}}
     prop = {"type": "date", "date": {"start": "2026-01-01", "end": None}}
     result = from_notion_property("date", prop)
-    assert result == datetime(2026, 1, 1)
+    assert result == datetime(2026, 1, 1)  # noqa: DTZ001 -- _from_date parses naive datetimes
 
 
 def test_date_range_round_trip():
@@ -67,7 +77,7 @@ def test_date_range_round_trip():
     assert payload == {"date": {"start": "2026-01-01", "end": "2026-01-05"}}
     prop = {"type": "date", "date": {"start": "2026-01-01", "end": "2026-01-05"}}
     result = from_notion_property("date", prop)
-    assert result == (datetime(2026, 1, 1), datetime(2026, 1, 5))
+    assert result == (datetime(2026, 1, 1), datetime(2026, 1, 5))  # noqa: DTZ001 -- _from_date parses naive datetimes
 
 
 def test_date_none():
@@ -77,7 +87,10 @@ def test_date_none():
 
 def test_url_email_phone():
     assert to_notion_property("url", "https://x.test") == {"url": "https://x.test"}
-    assert from_notion_property("url", {"type": "url", "url": "https://x.test"}) == "https://x.test"
+    assert (
+        from_notion_property("url", {"type": "url", "url": "https://x.test"})
+        == "https://x.test"
+    )
     assert to_notion_property("email", "a@b.com") == {"email": "a@b.com"}
     assert to_notion_property("phone_number", "123") == {"phone_number": "123"}
 
@@ -99,7 +112,13 @@ def test_relation_round_trip():
 def test_files_round_trip():
     payload = to_notion_property("files", ["https://x.test/a.png"])
     assert payload == {
-        "files": [{"name": "a.png", "type": "external", "external": {"url": "https://x.test/a.png"}}]
+        "files": [
+            {
+                "name": "a.png",
+                "type": "external",
+                "external": {"url": "https://x.test/a.png"},
+            }
+        ]
     }
     prop = {
         "type": "files",

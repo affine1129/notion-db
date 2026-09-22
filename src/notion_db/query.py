@@ -8,9 +8,10 @@ single run_sync() call rather than opening one event loop per page.
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import Any
 
-from .filters import FilterExpr, compile_filter
+from .filters import compile_filter
 from .page import Page
 
 Filter = "FilterExpr | dict[str, Any] | None"
@@ -27,7 +28,9 @@ def compile_sort(sort: Any) -> list[dict] | None:
         compiled.append(
             {
                 "property": name,
-                "direction": "ascending" if direction in ("asc", "ascending") else "descending",
+                "direction": "ascending"
+                if direction in ("asc", "ascending")
+                else "descending",
             }
         )
     return compiled

@@ -84,7 +84,9 @@ class TokenBucket:
     per-integration limit -- an accepted v1 simplification.
     """
 
-    def __init__(self, rate: float = RATE_LIMIT_RPS, capacity: float = RATE_LIMIT_BURST) -> None:
+    def __init__(
+        self, rate: float = RATE_LIMIT_RPS, capacity: float = RATE_LIMIT_BURST
+    ) -> None:
         self._rate = rate
         self._capacity = capacity
         self._tokens = capacity
@@ -154,7 +156,9 @@ class NotionTransport:
         while True:
             await self._rate_limiter.acquire()
             start = time.monotonic()
-            response = await self._client.request(method, path, params=params, json=json_body)
+            response = await self._client.request(
+                method, path, params=params, json=json_body
+            )
             elapsed = time.monotonic() - start
             logger.info(
                 "%s %s -> %s in %.3fs (attempt=%d)",
@@ -175,7 +179,10 @@ class NotionTransport:
             if response.status_code < 300:
                 return response.json() if response.content else {}
 
-            if response.status_code in _RETRYABLE_STATUSES and attempt < self._max_retries:
+            if (
+                response.status_code in _RETRYABLE_STATUSES
+                and attempt < self._max_retries
+            ):
                 retry_after_header = response.headers.get("retry-after")
                 retry_after = float(retry_after_header) if retry_after_header else None
                 delay = _compute_backoff(attempt, retry_after)
@@ -214,7 +221,7 @@ class _DataSourcesNamespace:
         *,
         data_source_id: str,
         page_size: int = 100,
-        filter: dict[str, Any] | None = None,  # noqa: A002
+        filter: dict[str, Any] | None = None,
         sorts: list[Any] | None = None,
         start_cursor: str | None = None,
     ) -> dict[str, Any]:
@@ -226,15 +233,21 @@ class _DataSourcesNamespace:
                 "start_cursor": start_cursor,
             }
         )
-        return await self._t.request("POST", f"/data_sources/{data_source_id}/query", json_body=body)
+        return await self._t.request(
+            "POST", f"/data_sources/{data_source_id}/query", json_body=body
+        )
 
 
 class _PagesNamespace:
     def __init__(self, transport: NotionTransport) -> None:
         self._t = transport
 
-    async def create(self, *, parent: dict[str, Any], properties: dict[str, Any]) -> dict[str, Any]:
-        return await self._t.request("POST", "/pages", json_body={"parent": parent, "properties": properties})
+    async def create(
+        self, *, parent: dict[str, Any], properties: dict[str, Any]
+    ) -> dict[str, Any]:
+        return await self._t.request(
+            "POST", "/pages", json_body={"parent": parent, "properties": properties}
+        )
 
     async def retrieve(self, *, page_id: str) -> dict[str, Any]:
         return await self._t.request("GET", f"/pages/{page_id}")
