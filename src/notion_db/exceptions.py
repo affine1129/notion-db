@@ -48,6 +48,6 @@ _API_CODE_TO_ERROR: dict[str, type[NotionDBError]] = {
 def translate_error(exc: Exception) -> NoReturn:
     """Re-raise a NotionHTTPError as the matching NotionDBError subclass."""
     code = getattr(exc, "code", None)
-    code_value = code.value if hasattr(code, "value") else code
+    code_value = code.value if code is not None and hasattr(code, "value") else code
     error_cls = _API_CODE_TO_ERROR.get(str(code_value), NotionAPIError)
     raise error_cls(str(exc)) from exc
