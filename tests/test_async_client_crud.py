@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import pytest
+from conftest import DATA_SOURCE_ID, DATABASE_ID, make_raw_page
 
 from notion_db.client import AsyncNotionDB
 from notion_db.exceptions import NotionValidationError
 
-from conftest import DATA_SOURCE_ID, DATABASE_ID, make_raw_page
-
 
 @pytest.mark.asyncio
 async def test_create_sends_parent_and_converted_properties(mock_client):
-    mock_client.pages.create.return_value = make_raw_page("p1", "Ship v0.1", "Not Started")
+    mock_client.pages.create.return_value = make_raw_page(
+        "p1", "Ship v0.1", "Not Started"
+    )
     db = AsyncNotionDB(DATABASE_ID, client=mock_client)
 
     page = await db.create({"Name": "Ship v0.1", "Status": "Not Started"})
@@ -19,7 +20,10 @@ async def test_create_sends_parent_and_converted_properties(mock_client):
     assert page["Name"] == "Ship v0.1"
 
     _, kwargs = mock_client.pages.create.call_args
-    assert kwargs["parent"] == {"type": "data_source_id", "data_source_id": DATA_SOURCE_ID}
+    assert kwargs["parent"] == {
+        "type": "data_source_id",
+        "data_source_id": DATA_SOURCE_ID,
+    }
     assert kwargs["properties"]["Status"] == {"status": {"name": "Not Started"}}
 
 

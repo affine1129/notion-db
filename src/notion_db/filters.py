@@ -29,7 +29,7 @@ class FilterExpr:
         condition: str | None = None,
         value: Any = None,
         compound_op: str | None = None,
-        children: list["FilterExpr"] | None = None,
+        children: list[FilterExpr] | None = None,
     ) -> None:
         self.property_name = property_name
         self.condition = condition
@@ -37,13 +37,13 @@ class FilterExpr:
         self.compound_op = compound_op
         self.children = children or []
 
-    def __and__(self, other: "FilterExpr") -> "FilterExpr":
+    def __and__(self, other: FilterExpr) -> FilterExpr:
         return self._combine("and", other)
 
-    def __or__(self, other: "FilterExpr") -> "FilterExpr":
+    def __or__(self, other: FilterExpr) -> FilterExpr:
         return self._combine("or", other)
 
-    def _combine(self, op: str, other: "FilterExpr") -> "FilterExpr":
+    def _combine(self, op: str, other: FilterExpr) -> FilterExpr:
         if not isinstance(other, FilterExpr):
             raise TypeError(
                 "did you forget parentheses around each comparison? "
@@ -61,11 +61,16 @@ class FilterExpr:
 
     def to_json(self, schema: dict[str, str]) -> dict:
         if self.compound_op is not None:
-            return {self.compound_op: [child.to_json(schema) for child in self.children]}
+            return {
+                self.compound_op: [child.to_json(schema) for child in self.children]
+            }
         if self.property_name not in schema:
             raise KeyError(f"unknown property {self.property_name!r} for this database")
         notion_type = schema[self.property_name]
-        return {"property": self.property_name, notion_type: {self.condition: self.value}}
+        return {
+            "property": self.property_name,
+            notion_type: {self.condition: self.value},
+        }
 
 
 def _isoify(value: Any) -> Any:
@@ -81,10 +86,10 @@ class FieldRef:
     def _leaf(self, condition: str, value: Any) -> FilterExpr:
         return FilterExpr(property_name=self.name, condition=condition, value=value)
 
-    def __eq__(self, other: Any) -> FilterExpr:  # type: ignore[override]
+    def __eq__(self, other: object) -> FilterExpr:  # type: ignore[override]
         return self._leaf("equals", other)
 
-    def __ne__(self, other: Any) -> FilterExpr:  # type: ignore[override]
+    def __ne__(self, other: object) -> FilterExpr:  # type: ignore[override]
         return self._leaf("does_not_equal", other)
 
     def __gt__(self, other: Any) -> FilterExpr:
@@ -147,7 +152,9 @@ def dict_to_filter(filter_dict: dict[str, Any]) -> FilterExpr:
     return expr
 
 
-def compile_filter(filter_: "FilterExpr | dict[str, Any] | None", schema: dict[str, str]) -> dict | None:
+def compile_filter(
+    filter_: FilterExpr | dict[str, Any] | None, schema: dict[str, str]
+) -> dict | None:
     if filter_ is None:
         return None
     if isinstance(filter_, dict):
@@ -155,5 +162,7 @@ def compile_filter(filter_: "FilterExpr | dict[str, Any] | None", schema: dict[s
             return None
         filter_ = dict_to_filter(filter_)
     if not isinstance(filter_, FilterExpr):
-        raise TypeError(f"filter must be a dict or FilterExpr, got {type(filter_).__name__}")
+        raise TypeError(
+            f"filter must be a dict or FilterExpr, got {type(filter_).__name__}"
+        )
     return filter_.to_json(schema)

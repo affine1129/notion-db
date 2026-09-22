@@ -19,16 +19,28 @@ DATA_SOURCE_RESPONSE = {
         "Name": {"id": "title", "name": "Name", "type": "title", "title": {}},
         "Status": {"id": "st1", "name": "Status", "type": "status", "status": {}},
         "Priority": {"id": "pr1", "name": "Priority", "type": "select", "select": {}},
-        "Tags": {"id": "tg1", "name": "Tags", "type": "multi_select", "multi_select": {}},
+        "Tags": {
+            "id": "tg1",
+            "name": "Tags",
+            "type": "multi_select",
+            "multi_select": {},
+        },
         "Due Date": {"id": "dd1", "name": "Due Date", "type": "date", "date": {}},
         "Done": {"id": "dn1", "name": "Done", "type": "checkbox", "checkbox": {}},
         "Estimate": {"id": "es1", "name": "Estimate", "type": "number", "number": {}},
-        "Created": {"id": "cr1", "name": "Created", "type": "created_time", "created_time": {}},
+        "Created": {
+            "id": "cr1",
+            "name": "Created",
+            "type": "created_time",
+            "created_time": {},
+        },
     },
 }
 
 
-def make_raw_page(page_id: str, name: str, status: str = "Not Started", archived: bool = False) -> dict[str, Any]:
+def make_raw_page(
+    page_id: str, name: str, status: str = "Not Started", archived: bool = False
+) -> dict[str, Any]:
     return {
         "id": page_id,
         "url": f"https://notion.so/{page_id}",
@@ -37,7 +49,9 @@ def make_raw_page(page_id: str, name: str, status: str = "Not Started", archived
             "Name": {
                 "id": "title",
                 "type": "title",
-                "title": [{"type": "text", "text": {"content": name}, "plain_text": name}],
+                "title": [
+                    {"type": "text", "text": {"content": name}, "plain_text": name}
+                ],
             },
             "Status": {"id": "st1", "type": "status", "status": {"name": status}},
         },

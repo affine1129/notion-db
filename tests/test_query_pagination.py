@@ -3,10 +3,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
+from conftest import DATABASE_ID, make_raw_page, paginated_side_effect
 
 from notion_db.client import AsyncNotionDB, NotionDB
-
-from conftest import DATABASE_ID, make_raw_page, paginated_side_effect
 
 
 def _three_pages() -> list[list[dict]]:
@@ -19,7 +18,9 @@ def _three_pages() -> list[list[dict]]:
 
 @pytest.mark.asyncio
 async def test_async_query_iterates_across_all_pages(mock_client):
-    mock_client.data_sources.query = AsyncMock(side_effect=paginated_side_effect(_three_pages()))
+    mock_client.data_sources.query = AsyncMock(
+        side_effect=paginated_side_effect(_three_pages())
+    )
     db = AsyncNotionDB(DATABASE_ID, client=mock_client)
 
     query = await db.query()
@@ -30,7 +31,9 @@ async def test_async_query_iterates_across_all_pages(mock_client):
 
 @pytest.mark.asyncio
 async def test_async_query_all_and_first(mock_client):
-    mock_client.data_sources.query = AsyncMock(side_effect=paginated_side_effect(_three_pages()))
+    mock_client.data_sources.query = AsyncMock(
+        side_effect=paginated_side_effect(_three_pages())
+    )
     db = AsyncNotionDB(DATABASE_ID, client=mock_client)
 
     query = await db.query()
@@ -43,7 +46,9 @@ async def test_async_query_all_and_first(mock_client):
 
 @pytest.mark.asyncio
 async def test_async_query_respects_limit(mock_client):
-    mock_client.data_sources.query = AsyncMock(side_effect=paginated_side_effect(_three_pages()))
+    mock_client.data_sources.query = AsyncMock(
+        side_effect=paginated_side_effect(_three_pages())
+    )
     db = AsyncNotionDB(DATABASE_ID, client=mock_client)
 
     query = await db.query(limit=3)
@@ -52,7 +57,9 @@ async def test_async_query_respects_limit(mock_client):
 
 
 def test_sync_query_iterates_across_all_pages(mock_client):
-    mock_client.data_sources.query = AsyncMock(side_effect=paginated_side_effect(_three_pages()))
+    mock_client.data_sources.query = AsyncMock(
+        side_effect=paginated_side_effect(_three_pages())
+    )
     db = NotionDB(DATABASE_ID, client=mock_client)
 
     names = [page["Name"] for page in db.query()]
@@ -60,7 +67,9 @@ def test_sync_query_iterates_across_all_pages(mock_client):
 
 
 def test_sync_query_first_and_len(mock_client):
-    mock_client.data_sources.query = AsyncMock(side_effect=paginated_side_effect(_three_pages()))
+    mock_client.data_sources.query = AsyncMock(
+        side_effect=paginated_side_effect(_three_pages())
+    )
     db = NotionDB(DATABASE_ID, client=mock_client)
 
     result = db.query()

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -47,7 +46,9 @@ async def test_429_with_retry_after_retries_and_succeeds():
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request)
         if len(calls) == 1:
-            return httpx.Response(429, headers={"Retry-After": "2"}, json={"code": "rate_limited"})
+            return httpx.Response(
+                429, headers={"Retry-After": "2"}, json={"code": "rate_limited"}
+            )
         return httpx.Response(200, json={"ok": True})
 
     http_client = _client_with_handler(handler)
@@ -67,14 +68,20 @@ async def test_5xx_exhausts_retries_and_raises():
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request)
-        return httpx.Response(503, json={"code": "service_unavailable", "message": "down"})
+        return httpx.Response(
+            503, json={"code": "service_unavailable", "message": "down"}
+        )
 
     http_client = _client_with_handler(handler)
-    transport = NotionTransport("secret-token-xyz", http_client=http_client, max_retries=1)
+    transport = NotionTransport(
+        "secret-token-xyz", http_client=http_client, max_retries=1
+    )
 
-    with patch("notion_db.http.asyncio.sleep", new=AsyncMock()):
-        with pytest.raises(NotionHTTPError) as excinfo:
-            await transport.request("GET", "/pages/p1")
+    with (
+        patch("notion_db.http.asyncio.sleep", new=AsyncMock()),
+        pytest.raises(NotionHTTPError) as excinfo,
+    ):
+        await transport.request("GET", "/pages/p1")
 
     assert excinfo.value.code == "service_unavailable"
     assert excinfo.value.status == 503
@@ -111,7 +118,9 @@ async def test_token_bucket_sleeps_when_exhausted():
 
     with (
         patch("notion_db.http.time.monotonic", side_effect=lambda: fake_time["t"]),
-        patch("notion_db.http.asyncio.sleep", new=AsyncMock(side_effect=fake_sleep)) as mock_sleep,
+        patch(
+            "notion_db.http.asyncio.sleep", new=AsyncMock(side_effect=fake_sleep)
+        ) as mock_sleep,
     ):
         bucket = TokenBucket(rate=1.0, capacity=1.0)
         await bucket.acquire()  # consumes the only token, no sleep

@@ -25,7 +25,9 @@ from notion_db import NotionDB, F
 db = NotionDB(database_id=os.environ["TASKS_DB_ID"])
 
 # create / update / delete: database id + property name + value, nothing else
-page = db.create({"Name": "Ship notion-db v0.1", "Status": "Not Started", "Priority": "High"})
+page = db.create(
+    {"Name": "Ship notion-db v0.1", "Status": "Not Started", "Priority": "High"}
+)
 db.update(page.id, {"Status": "Done"})
 db.delete(page.id)  # archives -- Notion has no hard delete via the API
 
@@ -47,10 +49,12 @@ for page in db.query(
 `create_many` / `update_many` run concurrently (bounded by `max_concurrency`, default 5) under the same rate limiter as everything else, and never raise on a per-item failure — they return one result per input, in order, each either a `Page` or a `NotionDBError` subclass instance, so partial failures don't lose the rest of the batch:
 
 ```python
-results = db.create_many([
-    {"Name": "Task A"},
-    {"Name": "Task B"},
-])
+results = db.create_many(
+    [
+        {"Name": "Task A"},
+        {"Name": "Task B"},
+    ]
+)
 for result in results:
     if isinstance(result, Exception):
         print("failed:", result)
